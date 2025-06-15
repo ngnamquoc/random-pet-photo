@@ -117,7 +117,7 @@ export default function Home() {
         {/* ---- Preview ---- */}
         <Card className="w-full max-w-md">
           <CardHeader className="pb-2">
-            <h3 className="text-lg font-semibold">Preview</h3>
+            <h3 className="text-lg font-semibold">Retrieval Preview</h3>
           </CardHeader>
           <CardBody className="flex items-center justify-center min-h-[320px]">
             {loading ? (
