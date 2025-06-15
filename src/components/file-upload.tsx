@@ -34,12 +34,6 @@ export function FileUpload({ onFileSelect, accept = ".jpg,.jpeg,.png,.webp", cla
     }
   };
 
-  const triggerFileInput = () => {
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
-    }
-  };
-
   return (
     <div className={`relative ${className}`}>
       {/* Hidden file input */}
