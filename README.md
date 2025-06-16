@@ -1,22 +1,4 @@
-# Pet Image## Table of Contents
-
-1. [Features](#features)
-2. [Architecture](#architecture)
-3. [API End‑Points](#api-end‑points)
-4. [Performance Benchmarks](#performance-benchmarks)
-5. [Cost Estimates](#cost-estimates)
-6. [Local Development](#local-development)
-7. [Deployment Guide](#deployment-guide)
-8. [License](#license)
-
-A full‑stack solution that lets users upload **cat** or **dog** images and later retrieve a random image by label.
-The project meets the [M250 Pet Image API Challenge] requirements (see `/docs/backend_fse_challenge_m250.pdf`).
-
-> **Live Demo** · [https://random-pet-photo.vercel.app](https://random-pet-photo.vercel.app)
->
-> • Dark/Light toggle · Responsive UI · Deployed on Vercel
-
----
+# Pet Images API
 
 ## Table of Contents
 
