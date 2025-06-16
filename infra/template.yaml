@@ -1,0 +1,138 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Random-Pet-Photo API - serverless stack
+
+Globals:
+  Function:
+    Runtime: python3.12
+    Architectures: [x86_64]         
+    MemorySize: 256
+    Timeout: 6
+    Environment:
+      Variables:
+        BUCKET_NAME: pet-images-m250-prod
+        ALLOWED_ORIGIN: https://random-pet-photo.vercel.app
+
+Resources:
+  # 1-Storage
+  PetBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: pet-images-m250-prod
+    DeletionPolicy: Retain
+
+  # 2-Functions
+  UploadFn:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: pet-image-uploader
+      CodeUri: lambda/upload/
+      Handler: lambda_function.lambda_handler
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - Statement:
+            Effect: Allow
+            Action:
+              - s3:ListBucket
+            Resource: !Sub arn:aws:s3:::pet-images-m250-prod
+        - Statement:
+            Effect: Allow
+            Action:
+              - s3:PutObject
+            Resource: !Sub arn:aws:s3:::pet-images-m250-prod/*
+        - Statement:
+            Effect: Allow
+            Action:
+              - lambda:InvokeFunction
+            Resource: !GetAtt CompactFn.Arn
+
+  RandomFn:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: get-random-image
+      CodeUri: lambda/random/
+      Handler: lambda_function.lambda_handler
+      Policies:
+        - S3ReadPolicy:
+            BucketName: pet-images-m250-prod
+
+  CompactFn:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: compact-handler
+      CodeUri: lambda/compact/
+      Handler: lambda_function.lambda_handler
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - Statement:
+            Effect: Allow
+            Action:
+              - s3:GetObject
+              - s3:ListBucket
+            Resource:
+              - !Sub arn:aws:s3:::pet-images-m250-prod
+              - !Sub arn:aws:s3:::pet-images-m250-prod/*
+        - Statement:
+            Effect: Allow
+            Action:
+              - s3:PutObject
+            Resource: !Sub arn:aws:s3:::pet-images-m250-prod/*
+
+  # 3-HTTP API Gateway
+  PetApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      Name: pet-image-api
+      CorsConfiguration:
+        AllowOrigins: ['https://random-pet-photo.vercel.app']
+        AllowMethods: ['GET','POST']
+        AllowHeaders: ['Content-Type']
+
+  UploadRoute:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: upload-route-dummy        
+      CodeUri: .                             
+      Handler: index.handler
+      Events:
+        Http:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref PetApi
+            Path: /upload
+            Method: POST
+
+  UploadRoutePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref UploadFn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${PetApi}/*/POST/upload
+
+  RandomRoute:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: random-route-dummy
+      CodeUri: .
+      Handler: index.handler
+      Events:
+        Http:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref PetApi
+            Path: /random
+            Method: GET
+
+  RandomRoutePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref RandomFn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${PetApi}/*/GET/random
+
+Outputs:
+  ApiUrl:
+    Description: Invoke URL to paste into Vercel env `NEXT_PUBLIC_API_BASE`
+    Value: !Sub https://${PetApi}.execute-api.${AWS::Region}.amazonaws.com
