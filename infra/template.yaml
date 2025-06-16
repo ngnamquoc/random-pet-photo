@@ -45,6 +45,12 @@ Resources:
             Action:
               - lambda:InvokeFunction
             Resource: !GetAtt CompactFn.Arn
+        - Statement:
+            Effect: Allow
+            Action:
+              - ssm:GetParameter
+              - ssm:PutParameter
+            Resource: "*"  # or scope to your exact SSM paths
 
   RandomFn:
     Type: AWS::Serverless::Function
@@ -55,6 +61,10 @@ Resources:
       Policies:
         - S3ReadPolicy:
             BucketName: pet-images-m250-prod
+      Environment:
+        Variables:
+          BUCKET_NAME: pet-images-m250-prod
+          SSM_ENV_PREFIX: /pet-images/prod
 
   CompactFn:
     Type: AWS::Serverless::Function
@@ -77,6 +87,11 @@ Resources:
             Action:
               - s3:PutObject
             Resource: !Sub arn:aws:s3:::pet-images-m250-prod/*
+        - Statement:
+            Effect: Allow
+            Action:
+              - ssm:GetParameter
+            Resource: "*"
 
   # 3-HTTP API Gateway
   PetApi:
@@ -91,7 +106,7 @@ Resources:
   UploadRoute:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: upload-route-dummy        
+      FunctionName: upload-route-placeholder        
       CodeUri: .                             
       Handler: index.handler
       Events:
@@ -113,7 +128,7 @@ Resources:
   RandomRoute:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: random-route-dummy
+      FunctionName: random-route-placeholder
       CodeUri: .
       Handler: index.handler
       Events:
@@ -131,6 +146,35 @@ Resources:
       Action: lambda:InvokeFunction
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${PetApi}/*/GET/random
+
+  # SSM Parameters 
+  ShardMaxSizeParam:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /pet-images/prod/shard/max_size
+      Type: String
+      Value: "5000"
+
+  CompactSizeThresholdParam:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /pet-images/prod/compact/size_threshold
+      Type: String
+      Value: "100000"
+
+  CatCounterParam:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /pet-images/prod/counters/cat
+      Type: String
+      Value: "0"
+
+  DogCounterParam:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /pet-images/prod/counters/dog
+      Type: String
+      Value: "0"
 
 Outputs:
   ApiUrl:
