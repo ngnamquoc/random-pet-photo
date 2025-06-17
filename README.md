@@ -4,7 +4,7 @@
 
 1. [Features](#features)
 2. [Architecture](#architecture)
-3. [API End‑Points](#api-end-points)
+3. [API End‑Points](#api-end‑points)
 4. [Performance Benchmarks](#performance-benchmarks)
 5. [Cost Estimates](#cost-estimates)
 6. [Local Development](#local-development)
@@ -17,7 +17,7 @@
 
 | Category        | Details                                                                                                       |
 | --------------- | ------------------------------------------------------------------------------------------------------------- |
-| **Frontend**    | Next.js 14 (App Router), TypeScript, TailwindCSS, Dark/Light mode switch, Drag‑and‑drop uploader          |
+| **Frontend**    | Next.js 15 (App Router), TypeScript, TailwindCSS, Dark/Light mode switch, Drag‑and‑drop uploader          |
 | **Backend**     | AWS API Gateway, AWS Lambda (Python 3.12, boto3), 100 % Serverless, S3 storage (hierarchical sharding) |
 | **Security**    | Presigned URLs are not exposed, Lambda sanitises content‑type & label, CORS locked to production origin     |
 | **CI/CD**       | Vercel (frontend) |
@@ -147,9 +147,60 @@ The entire backend stack is defined in [`template.yaml`](./infra/template.yaml) 
 * An HTTP API Gateway with `/upload` and `/random` routes
 * All necessary IAM policies and CORS settings
 
+#### Prerequisites
+
+**Install AWS CLI** (required for AWS authentication):
+
+```bash
+# macOS (Homebrew) - Recommended
+brew install awscli
+
+# macOS (Direct installer)
+curl "https://awscli.amazonaws.com/AWSCLIV2.pkg" -o "AWSCLIV2.pkg"
+sudo installer -pkg AWSCLIV2.pkg -target /
+
+# Verify installation
+aws --version
+```
+
+Configure AWS CLI with your credentials:
+```bash
+aws configure
+```
+
+You'll be prompted to enter:
+- **AWS Access Key ID**: Your AWS access key
+- **AWS Secret Access Key**: Your AWS secret key  
+- **Default region name**: e.g., `us-east-1`, `us-west-2`
+- **Default output format**: `json` (recommended)
+
+> **💡 Tip**: You can get AWS credentials from the [AWS Console](https://console.aws.amazon.com/) → IAM → Users → Security credentials → Create access key
+
+**Install AWS SAM CLI** (required for deployment):
+
+```bash
+# macOS (Homebrew)
+brew install aws-sam-cli
+
+# Windows (Chocolatey)
+choco install aws-sam-cli
+
+# Linux / Manual Installation
+# Download from: https://github.com/aws/aws-sam-cli/releases/latest
+# Or use pip: pip install aws-sam-cli
+```
+
+Verify installation:
+```bash
+sam --version
+```
+
+#### Deploy Backend
+
 To deploy:
 
 ```bash
+cd infra
 sam build
 sam deploy --guided
 ```
@@ -177,8 +228,8 @@ NEXT_PUBLIC_API_BASE=https://<your-api>.execute-api.<region>.amazonaws.com
 
 * **Compact Handler (Decoupled Indexing)**: Instead of building/updating index files during the main image upload, the system asynchronously invokes a compact-handler. This keeps upload latency low and isolates heavy I/O in a background task.
 * **Uniform Weights (for Random Selection)**: While the bonus spec allows per-image weighting, we defaulted to uniform weights to simplify shard structure, avoid floating-point precision issues in cumulative weights, and ensure fairness. The codebase is modular enough to later support weighted selection.
-* **Content-Addressed Keys**: Images are stored using SHA-256 hashes of the file contents to deduplicate uploads, enforce immutability, and avoid name collisions.
-* **Hierarchical Sharding**: A flat, 1-level sharding scheme stores keys into capped manifest files like `0.json.gz`, each holding up to 5,000 entries. This prevents any single file from growing unbounded and simplifies index maintenance, supporting scale and quick lookups.
+* **UUID-Based Keys**: Images are stored using UUID v4 identifiers combined with labels (e.g., `cat/uuid.jpg`) to ensure uniqueness and avoid name collisions.
+* **Distributed Database Simulation**: The system simulates a distributed database by splitting image metadata into multiple shards (`0.json.gz`, `1.json.gz`, etc.) with `index.json` serving as the metadata manager that tracks shard boundaries and cumulative counts for efficient random selection.
 
 ### Edge Cases Handled
 

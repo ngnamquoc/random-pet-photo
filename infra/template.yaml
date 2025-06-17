@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: Random-Pet-Photo API - serverless stack
+Description: Random-Pet-Photo API - staging stack
 
 Globals:
   Function:
@@ -10,7 +10,7 @@ Globals:
     Timeout: 6
     Environment:
       Variables:
-        BUCKET_NAME: pet-images-m250-prod
+        BUCKET_NAME: pet-images-m250-staging
         ALLOWED_ORIGIN: https://random-pet-photo.vercel.app
 
 Resources:
@@ -18,14 +18,12 @@ Resources:
   PetBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: pet-images-m250-prod
-    DeletionPolicy: Retain
-
+      BucketName: pet-images-m250-staging
   # 2-Functions
   UploadFn:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: pet-image-uploader
+      FunctionName: pet-image-uploader-staging
       CodeUri: lambda/upload/
       Handler: lambda_function.lambda_handler
       Policies:
@@ -34,12 +32,12 @@ Resources:
             Effect: Allow
             Action:
               - s3:ListBucket
-            Resource: !Sub arn:aws:s3:::pet-images-m250-prod
+            Resource: !Sub arn:aws:s3:::pet-images-m250-staging
         - Statement:
             Effect: Allow
             Action:
               - s3:PutObject
-            Resource: !Sub arn:aws:s3:::pet-images-m250-prod/*
+            Resource: !Sub arn:aws:s3:::pet-images-m250-staging/*
         - Statement:
             Effect: Allow
             Action:
@@ -50,26 +48,26 @@ Resources:
             Action:
               - ssm:GetParameter
               - ssm:PutParameter
-            Resource: "*"  # or scope to your exact SSM paths
+            Resource: "*"
 
   RandomFn:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: get-random-image
+      FunctionName: get-random-image-staging
       CodeUri: lambda/random/
       Handler: lambda_function.lambda_handler
       Policies:
         - S3ReadPolicy:
-            BucketName: pet-images-m250-prod
+            BucketName: pet-images-m250-staging
       Environment:
         Variables:
-          BUCKET_NAME: pet-images-m250-prod
-          SSM_ENV_PREFIX: /pet-images/prod
+          BUCKET_NAME: pet-images-m250-staging
+          SSM_ENV_PREFIX: /pet-images/staging
 
   CompactFn:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: compact-handler
+      FunctionName: compact-handler-staging
       CodeUri: lambda/compact/
       Handler: lambda_function.lambda_handler
       Policies:
@@ -80,13 +78,13 @@ Resources:
               - s3:GetObject
               - s3:ListBucket
             Resource:
-              - !Sub arn:aws:s3:::pet-images-m250-prod
-              - !Sub arn:aws:s3:::pet-images-m250-prod/*
+              - !Sub arn:aws:s3:::pet-images-m250-staging
+              - !Sub arn:aws:s3:::pet-images-m250-staging/*
         - Statement:
             Effect: Allow
             Action:
               - s3:PutObject
-            Resource: !Sub arn:aws:s3:::pet-images-m250-prod/*
+            Resource: !Sub arn:aws:s3:::pet-images-m250-staging/*
         - Statement:
             Effect: Allow
             Action:
@@ -97,7 +95,7 @@ Resources:
   PetApi:
     Type: AWS::Serverless::HttpApi
     Properties:
-      Name: pet-image-api
+      Name: pet-image-api-staging
       CorsConfiguration:
         AllowOrigins: ['https://random-pet-photo.vercel.app']
         AllowMethods: ['GET','POST']
@@ -106,8 +104,8 @@ Resources:
   UploadRoute:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: upload-route-placeholder        
-      CodeUri: .                             
+      FunctionName: upload-route-staging
+      CodeUri: .
       Handler: index.handler
       Events:
         Http:
@@ -128,7 +126,7 @@ Resources:
   RandomRoute:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: random-route-placeholder
+      FunctionName: random-route-staging
       CodeUri: .
       Handler: index.handler
       Events:
@@ -151,32 +149,32 @@ Resources:
   ShardMaxSizeParam:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /pet-images/prod/shard/max_size
+      Name: /pet-images/staging/shard/max_size
       Type: String
       Value: "5000"
 
   CompactSizeThresholdParam:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /pet-images/prod/compact/size_threshold
+      Name: /pet-images/staging/compact/size_threshold
       Type: String
       Value: "100000"
 
   CatCounterParam:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /pet-images/prod/counters/cat
+      Name: /pet-images/staging/counters/cat
       Type: String
       Value: "0"
 
   DogCounterParam:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /pet-images/prod/counters/dog
+      Name: /pet-images/staging/counters/dog
       Type: String
       Value: "0"
 
 Outputs:
   ApiUrl:
-    Description: Invoke URL to paste into Vercel env `NEXT_PUBLIC_API_BASE`
+    Description: Invoke URL to paste into staging env `NEXT_PUBLIC_API_BASE`
     Value: !Sub https://${PetApi}.execute-api.${AWS::Region}.amazonaws.com
